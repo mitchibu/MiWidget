@@ -1,0 +1,6 @@
+<resources>
+	<declare-styleable name="CalendarView">
+		<attr name="dayOfWeekLayout" format="reference"/>
+		<attr name="dayLayout" format="reference"/>
+	</declare-styleable>
+</resources>
