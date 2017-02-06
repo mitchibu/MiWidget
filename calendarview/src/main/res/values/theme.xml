@@ -1,6 +1,7 @@
 <resources>
 	<style name="Widget.CalendarView" parent="android:Widget">
-		<item name="dayOfWeekLayout">@layout/simple_day_of_week</item>
-		<item name="dayLayout">@layout/simple_day_checkable</item>
+		<item name="dayOfWeekLayout">@layout/mi_simple_day_of_week</item>
+		<item name="dayLayout">@layout/mi_simple_day_checkable</item>
+		<item name="daySelector">@drawable/mi_day_selector</item>
 	</style>
 </resources>

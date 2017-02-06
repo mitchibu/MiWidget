@@ -2,5 +2,6 @@
 	<declare-styleable name="CalendarView">
 		<attr name="dayOfWeekLayout" format="reference"/>
 		<attr name="dayLayout" format="reference"/>
+		<attr name="daySelector" format="reference"/>
 	</declare-styleable>
 </resources>

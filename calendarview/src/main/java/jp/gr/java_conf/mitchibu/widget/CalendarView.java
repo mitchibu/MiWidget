@@ -24,9 +24,8 @@ public class CalendarView extends ViewGroup {
 	private final Queue<View> poolDayOfWeek = new LinkedList<>();
 	private final Queue<View> poolDay = new LinkedList<>();
 	private final GestureDetector detector;
-	private final int dayOfWeekLayout;
-	private final int dayLayout;
 
+	private CalendarAdapter adapter;
 	private MonthDisplayHelper helper = null;
 	private int selectedDayOfMonth = 0;
 	private OnItemClickListener listener = null;
@@ -49,7 +48,7 @@ public class CalendarView extends ViewGroup {
 			}
 
 			@Override
-			public boolean onSingleTapConfirmed(MotionEvent e) {
+			public boolean onSingleTapUp(MotionEvent e) {
 				if(listener != null) {
 					Rect rect = new Rect();
 					for(int i = 0, n = getChildCount(); i < n; ++i) {
@@ -68,6 +67,8 @@ public class CalendarView extends ViewGroup {
 		});
 
 		TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CalendarView, defStyleAttr, R.style.Widget_CalendarView);
+		int dayOfWeekLayout;
+		int dayLayout;
 		try {
 			dayOfWeekLayout = a.getResourceId(R.styleable.CalendarView_dayOfWeekLayout, 0);
 			dayLayout = a.getResourceId(R.styleable.CalendarView_dayLayout, 0);
@@ -77,6 +78,24 @@ public class CalendarView extends ViewGroup {
 
 		Calendar c = Calendar.getInstance();
 		setDate(c.get(Calendar.YEAR), c.get(Calendar.MONTH));
+		setCalendarAdapter(new DefaultCalendarAdapter(context, dayOfWeekLayout, dayLayout));
+	}
+
+	public void setCalendarAdapter(CalendarAdapter adapter) {
+		this.adapter = adapter;
+		requestLayout();
+	}
+
+	public int getYear() {
+		return helper.getYear();
+	}
+
+	public int getMonth() {
+		return helper.getMonth();
+	}
+
+	public int getDayOfMonth() {
+		return selectedDayOfMonth;
 	}
 
 	public void setDate(int year, int month) {
@@ -135,6 +154,22 @@ public class CalendarView extends ViewGroup {
 	}
 
 	@Override
+	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+		int width = MeasureSpec.getSize(widthMeasureSpec);
+		int height = MeasureSpec.getSize(heightMeasureSpec);
+
+		int childWidth = calcChildWidth(width, height);
+		int childHeight = calcChildHeight(width, height);
+		if(MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.AT_MOST) {
+			width = childWidth * 7;
+		}
+		if(MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST) {
+			height = childHeight * 7 + layoutDayOfWeek(childWidth, childHeight);
+		}
+		setMeasuredDimension(width, height);
+	}
+
+	@Override
 	protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
 		for(int i = 0, n = getChildCount(); i < n; ++ i) {
 			View child = getChildAt(i);
@@ -151,20 +186,32 @@ public class CalendarView extends ViewGroup {
 			}
 		}
 		removeAllViewsInLayout();
+		if(adapter == null) return;
 
-		int childWidth = getMeasuredWidth() / 7;
-		int childHeight = getMeasuredWidth() / 7;
+		int width = getMeasuredWidth();
+		int height = getMeasuredHeight();
+		int size = Math.min(width, height);
+		int childWidth = calcChildWidth(width, height);
+		int childHeight = calcChildHeight(width, height);
 
 		int maxHeight = layoutDayOfWeek(childWidth, childHeight);
 		layoutDay(childWidth, childHeight, maxHeight);
+	}
+
+	private int calcChildWidth(int width, int height) {
+		return Math.min(width, height) / 7;
+	}
+
+	private int calcChildHeight(int width, int height) {
+		return Math.min(width, height) / 7;
 	}
 
 	@SuppressWarnings("UnusedParameters")
 	private int layoutDayOfWeek(int width, int height) {
 		int maxHeight = 0;
 		for(int i = Calendar.SUNDAY, x = 0; i <= Calendar.SATURDAY; ++ i, x += width) {
-			View v = dayOfWeek(i, poolDayOfWeek.poll());
-			ViewGroup.LayoutParams params = v.getLayoutParams();
+			View child = adapter.getDayOfWeekView(i, poolDayOfWeek.poll(), this);
+			ViewGroup.LayoutParams params = child.getLayoutParams();
 			if(params == null || !(params instanceof LayoutParams)) {
 				params = new LayoutParams(width, LayoutParams.WRAP_CONTENT, LayoutParams.TYPE_DAY_OF_WEEK);
 			} else {
@@ -172,12 +219,12 @@ public class CalendarView extends ViewGroup {
 				params.height = LayoutParams.WRAP_CONTENT;
 				((LayoutParams)params).dayOfMonth = 0;
 			}
-			addViewInLayout(v, -1, params);
+			addViewInLayout(child, -1, params);
 			int measureWidth = MeasureSpec.makeMeasureSpec(params.width, MeasureSpec.EXACTLY);
 			int measureHeight = MeasureSpec.makeMeasureSpec(params.height, MeasureSpec.UNSPECIFIED);
-			v.measure(measureWidth, measureHeight);
-			v.layout(x, 0, x + v.getMeasuredWidth(), v.getMeasuredHeight());
-			if(maxHeight < v.getHeight()) maxHeight = v.getHeight();
+			child.measure(measureWidth, measureHeight);
+			child.layout(x, 0, x + child.getMeasuredWidth(), child.getMeasuredHeight());
+			if(maxHeight < child.getHeight()) maxHeight = child.getHeight();
 		}
 		return maxHeight;
 	}
@@ -186,8 +233,8 @@ public class CalendarView extends ViewGroup {
 		for(int i = 1; i <= helper.getNumberOfDaysInMonth(); ++ i) {
 			int x = width * helper.getColumnOf(i);
 			int y = offset + height * helper.getRowOf(i);
-			View v = day(helper.getYear(), helper.getMonth(), i, poolDay.poll());
-			ViewGroup.LayoutParams params = v.getLayoutParams();
+			View child = adapter.getDayView(helper.getYear(), helper.getMonth(), i, poolDay.poll(), this);
+			ViewGroup.LayoutParams params = child.getLayoutParams();
 			if(params == null || !(params instanceof LayoutParams)) {
 				params = new LayoutParams(width, height, LayoutParams.TYPE_DAY, i);
 			} else {
@@ -195,71 +242,82 @@ public class CalendarView extends ViewGroup {
 				params.height = height;
 				((LayoutParams)params).dayOfMonth = i;
 			}
-			if(v instanceof Checkable) {
-				((Checkable)v).setChecked(selectedDayOfMonth == i);
+			if(child instanceof Checkable) {
+				((Checkable)child).setChecked(selectedDayOfMonth == i);
 			}
-			addViewInLayout(v, -1, params);
+			addViewInLayout(child, -1, params);
 			int measureWidth = MeasureSpec.makeMeasureSpec(params.width, MeasureSpec.EXACTLY);
 			int measureHeight = MeasureSpec.makeMeasureSpec(params.height, MeasureSpec.EXACTLY);
-			v.measure(measureWidth, measureHeight);
-			v.layout(x, y, x + v.getMeasuredWidth(), y + v.getMeasuredHeight());
+			child.measure(measureWidth, measureHeight);
+			child.layout(x, y, x + child.getMeasuredWidth(), y + child.getMeasuredHeight());
 		}
 	}
 
-	View dayOfWeek(int dayOfWeek, View convertView) {
-		if(convertView == null) {
-			convertView = LayoutInflater.from(getContext()).inflate(dayOfWeekLayout, this, false);
-		}
-		bindDayOfWeek(dayOfWeek, convertView);
-		return convertView;
-	}
-
-	private void bindDayOfWeek(int dayOfWeek, View convertView) {
-		View view = convertView.findViewById(android.R.id.text1);
-		if(view instanceof TextView) {
-			Calendar c = Calendar.getInstance();
-			c.set(Calendar.DAY_OF_WEEK, dayOfWeek);
-			((TextView)convertView).setText(DateUtils.formatDateTime(getContext(), c.getTimeInMillis(), DateUtils.FORMAT_SHOW_WEEKDAY|DateUtils.FORMAT_ABBREV_WEEKDAY));
-		}
-	}
-
-	@SuppressWarnings("UnusedParameters")
-	View day(int year, int month, int dayOfMonth, View convertView) {
-		if(convertView == null) {
-			convertView = LayoutInflater.from(getContext()).inflate(dayLayout, this, false);
-		}
-		bindDay(year, month, dayOfMonth, convertView);
-		return convertView;
-	}
-
-	@SuppressLint("SetTextI18n")
-	@SuppressWarnings("UnusedParameters")
-	private void bindDay(int year, int month, int dayOfMonth, View convertView) {
-		View view = convertView.findViewById(android.R.id.text1);
-		if(view instanceof TextView) {
-			((TextView)view).setText("" + dayOfMonth);
-		}
-	}
-
-	static class LayoutParams extends ViewGroup.LayoutParams {
+	@SuppressWarnings("WeakerAccess")
+	public static class LayoutParams extends ViewGroup.LayoutParams {
 		static final int TYPE_DAY_OF_WEEK = 0;
 		static final int TYPE_DAY = 1;
 
 		int type;
 		int dayOfMonth;
 
-		LayoutParams(int width, int height, int type) {
+		public LayoutParams(int width, int height, int type) {
 			this(width, height, type, 0);
 		}
 
-		LayoutParams(int width, int height, int type, int dayOfMonth) {
+		public LayoutParams(int width, int height, int type, int dayOfMonth) {
 			super(width, height);
 			this.type = type;
 			this.dayOfMonth = dayOfMonth;
 		}
 	}
 
+	@SuppressWarnings("WeakerAccess")
+	public static class DefaultCalendarAdapter implements CalendarAdapter {
+		private final Context context;
+		private final int dayOfWeekLayout;
+		private final int dayLayout;
+
+		public DefaultCalendarAdapter(Context context, int dayOfWeekLayout, int dayLayout) {
+			this.context = context;
+			this.dayOfWeekLayout = dayOfWeekLayout;
+			this.dayLayout = dayLayout;
+		}
+
+		@Override
+		public View getDayOfWeekView(int dayOfWeek, View convertView, ViewGroup parent) {
+			if(convertView == null) {
+				convertView = LayoutInflater.from(context).inflate(dayOfWeekLayout, parent, false);
+			}
+			View view = convertView.findViewById(android.R.id.text1);
+			if(view instanceof TextView) {
+				Calendar c = Calendar.getInstance();
+				c.set(Calendar.DAY_OF_WEEK, dayOfWeek);
+				((TextView)convertView).setText(DateUtils.formatDateTime(context, c.getTimeInMillis(), DateUtils.FORMAT_SHOW_WEEKDAY|DateUtils.FORMAT_ABBREV_WEEKDAY));
+			}
+			return convertView;
+		}
+
+		@SuppressLint("SetTextI18n")
+		@Override
+		public View getDayView(int year, int month, int dayOfMonth, View convertView, ViewGroup parent) {
+			if(convertView == null) {
+				convertView = LayoutInflater.from(context).inflate(dayLayout, parent, false);
+			}
+			View view = convertView.findViewById(android.R.id.text1);
+			if(view instanceof TextView) {
+				((TextView)view).setText("" + dayOfMonth);
+			}
+			return convertView;
+		}
+	}
+
 	public interface OnItemClickListener {
 		void onItemClick(CalendarView view, int year, int month, int dayOfMonth);
+	}
+
+	public interface CalendarAdapter {
+		View getDayOfWeekView(int dayOfWeek, View convertView, ViewGroup parent);
+		View getDayView(int year, int month, int dayOfMonth, View convertView, ViewGroup parent);
 	}
 }
