@@ -24,6 +24,7 @@ public class CalendarView extends ViewGroup {
 	private final Queue<View> poolDayOfWeek = new LinkedList<>();
 	private final Queue<View> poolDay = new LinkedList<>();
 	private final GestureDetector detector;
+	private final int daySelector;
 
 	private CalendarAdapter adapter;
 	private MonthDisplayHelper helper = null;
@@ -39,6 +40,10 @@ public class CalendarView extends ViewGroup {
 	}
 
 	public CalendarView(Context context, AttributeSet attrs, int defStyleAttr) {
+		this(context, attrs, defStyleAttr, R.style.Widget_CalendarView);
+	}
+
+	public CalendarView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
 		super(context, attrs, defStyleAttr);
 
 		detector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
@@ -66,12 +71,13 @@ public class CalendarView extends ViewGroup {
 			}
 		});
 
-		TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CalendarView, defStyleAttr, R.style.Widget_CalendarView);
+		TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.CalendarView, defStyleAttr, defStyleRes);
 		int dayOfWeekLayout;
 		int dayLayout;
 		try {
 			dayOfWeekLayout = a.getResourceId(R.styleable.CalendarView_dayOfWeekLayout, 0);
 			dayLayout = a.getResourceId(R.styleable.CalendarView_dayLayout, 0);
+			daySelector = a.getResourceId(R.styleable.CalendarView_daySelector, 0);
 		} finally {
 			a.recycle();
 		}
@@ -103,6 +109,7 @@ public class CalendarView extends ViewGroup {
 	}
 
 	public void setDate(int year, int month, int dayOfMonth) {
+		android.util.Log.v("test", String.format("setDate: %d.%d.%d", year, month, dayOfMonth));
 		selectedDayOfMonth = dayOfMonth;
 		if(helper == null || helper.getYear() != year || helper.getMonth() != month) {
 			helper = new MonthDisplayHelper(year, month);
@@ -240,6 +247,7 @@ public class CalendarView extends ViewGroup {
 			int x = paddingLeft + width * helper.getColumnOf(i);
 			int y = paddingTop + offset + height * helper.getRowOf(i);
 			View child = adapter.getDayView(helper.getYear(), helper.getMonth(), i, poolDay.poll(), this);
+			child.setBackgroundResource(daySelector);
 			ViewGroup.LayoutParams params = child.getLayoutParams();
 			if(params == null || !(params instanceof LayoutParams)) {
 				params = new LayoutParams(width, height, LayoutParams.TYPE_DAY, i);
