@@ -158,8 +158,10 @@ public class CalendarView extends ViewGroup {
 		int width = MeasureSpec.getSize(widthMeasureSpec);
 		int height = MeasureSpec.getSize(heightMeasureSpec);
 
-		int childWidth = calcChildWidth(width, height);
-		int childHeight = calcChildHeight(width, height);
+		int w = width - getPaddingLeft() - getPaddingRight();
+		int h = height - getPaddingTop() - getPaddingBottom();
+		int childWidth = calcChildWidth(w, h);
+		int childHeight = calcChildHeight(w, h);
 		if(MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.AT_MOST) {
 			width = childWidth * 7;
 		}
@@ -188,8 +190,8 @@ public class CalendarView extends ViewGroup {
 		removeAllViewsInLayout();
 		if(adapter == null) return;
 
-		int width = getMeasuredWidth();
-		int height = getMeasuredHeight();
+		int width = getMeasuredWidth() - getPaddingLeft() - getPaddingRight();
+		int height = getMeasuredHeight() - getPaddingTop() - getPaddingBottom();
 		int size = Math.min(width, height);
 		int childWidth = calcChildWidth(width, height);
 		int childHeight = calcChildHeight(width, height);
@@ -208,6 +210,8 @@ public class CalendarView extends ViewGroup {
 
 	@SuppressWarnings("UnusedParameters")
 	private int layoutDayOfWeek(int width, int height) {
+		int paddingLeft = getPaddingLeft();
+		int paddingTop = getPaddingTop();
 		int maxHeight = 0;
 		for(int i = Calendar.SUNDAY, x = 0; i <= Calendar.SATURDAY; ++ i, x += width) {
 			View child = adapter.getDayOfWeekView(i, poolDayOfWeek.poll(), this);
@@ -223,16 +227,18 @@ public class CalendarView extends ViewGroup {
 			int measureWidth = MeasureSpec.makeMeasureSpec(params.width, MeasureSpec.EXACTLY);
 			int measureHeight = MeasureSpec.makeMeasureSpec(params.height, MeasureSpec.UNSPECIFIED);
 			child.measure(measureWidth, measureHeight);
-			child.layout(x, 0, x + child.getMeasuredWidth(), child.getMeasuredHeight());
+			child.layout(x, paddingTop, x + child.getMeasuredWidth(), paddingTop + child.getMeasuredHeight());
 			if(maxHeight < child.getHeight()) maxHeight = child.getHeight();
 		}
 		return maxHeight;
 	}
 
 	private void layoutDay(int width, int height, int offset) {
+		int paddingLeft = getPaddingLeft();
+		int paddingTop = getPaddingTop();
 		for(int i = 1; i <= helper.getNumberOfDaysInMonth(); ++ i) {
-			int x = width * helper.getColumnOf(i);
-			int y = offset + height * helper.getRowOf(i);
+			int x = paddingLeft + width * helper.getColumnOf(i);
+			int y = paddingTop + offset + height * helper.getRowOf(i);
 			View child = adapter.getDayView(helper.getYear(), helper.getMonth(), i, poolDay.poll(), this);
 			ViewGroup.LayoutParams params = child.getLayoutParams();
 			if(params == null || !(params instanceof LayoutParams)) {
