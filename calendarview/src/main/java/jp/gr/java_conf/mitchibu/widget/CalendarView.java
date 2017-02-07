@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Rect;
-import android.text.format.DateUtils;
 import android.util.AttributeSet;
 import android.util.MonthDisplayHelper;
 import android.view.GestureDetector;
@@ -15,6 +14,7 @@ import android.view.ViewGroup;
 import android.widget.Checkable;
 import android.widget.TextView;
 
+import java.text.DateFormatSymbols;
 import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -291,11 +291,15 @@ public class CalendarView extends ViewGroup {
 		private final Context context;
 		private final int dayOfWeekLayout;
 		private final int dayLayout;
+		private final String[] shortWeekDays;
 
 		public DefaultCalendarAdapter(Context context, int dayOfWeekLayout, int dayLayout) {
 			this.context = context;
 			this.dayOfWeekLayout = dayOfWeekLayout;
 			this.dayLayout = dayLayout;
+
+			DateFormatSymbols symbols = DateFormatSymbols.getInstance();
+			shortWeekDays = symbols.getShortWeekdays();
 		}
 
 		@Override
@@ -305,9 +309,7 @@ public class CalendarView extends ViewGroup {
 			}
 			View view = convertView.findViewById(android.R.id.text1);
 			if(view instanceof TextView) {
-				Calendar c = Calendar.getInstance();
-				c.set(Calendar.DAY_OF_WEEK, dayOfWeek);
-				((TextView)convertView).setText(DateUtils.formatDateTime(context, c.getTimeInMillis(), DateUtils.FORMAT_SHOW_WEEKDAY|DateUtils.FORMAT_ABBREV_WEEKDAY));
+				((TextView)convertView).setText(shortWeekDays[dayOfWeek]);
 			}
 			return convertView;
 		}
